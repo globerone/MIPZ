@@ -1,46 +1,46 @@
-def check_five(board, row, col):
-  color = board[row][col]
-
-  # Horizontal
+def check_horizontal(board, row, col, color):
   count = 1
   for i in range(1, 5):
     if col + i < 19 and board[row][col + i] == color:
       count += 1
     else:
       break
-  if count >= 5:
-    return True, row, col
+  return count
 
-  # Vertical
+def check_vertical(board, row, col, color):
   count = 1
   for i in range(1, 5):
     if row + i < 19 and board[row + i][col] == color:
       count += 1
     else:
       break
-  if count >= 5:
-    return True, row, col
+  return count
 
-  # Diagonal (top-left to bottom-right)
+def check_diagonal_top_left_bottom_right(board, row, col, color):
   count = 1
   for i in range(1, 5):
-    if row + i < 19 and col + i < 19 and board[row + i][col + i] == color:
+    if row + i < 19 and board[row + i][col] == color:
       count += 1
     else:
       break
-  if count >= 5:
-    return True, row, col
+  return count
 
-  # Diagonal (bottom-left to top-right)
+def check_diagonal_bottom_left_top_right(board, row, col, color):
   count = 1
   for i in range(1, 5):
     if row + i < 19 and col - i >= 0 and board[row + i][col - i] == color:
       count += 1
     else:
       break
-  if count >= 5:
-    return True, row, col
+  return count
 
+def check_five(board, row, col):
+  color = board[row][col]
+
+  for check in [check_horizontal, check_vertical, check_diagonal_top_left_bottom_right, check_diagonal_bottom_left_top_right]:
+    if check(board, row, col, color) == 5:
+      return True, row, col
+  
   return False, None, None
 
 def check_winner(board):
@@ -57,6 +57,9 @@ def main():
   try:
     with open('data.txt', 'r') as file:
         count = int(file.readline())
+        if 1 > count > 11:
+          print("Number of tast cases is too high")
+          return 
         for num_test_cases in range(count):
           array = []
           for line in range(19):
@@ -66,7 +69,7 @@ def main():
           print(winner)
           if winner != 0:
             print(win_pos[0] + 1, win_pos[1] + 1)
-  except:
+  except(ValueError):
     print('Wrong input file')
     return
 
