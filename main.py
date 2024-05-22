@@ -1,7 +1,13 @@
+ROW_LENGTH=19
+COL_LENGTH=19
+WINNING_LENGTH=5
+BLACK_STONE_NUMBER=1
+WHITE_STONE_NUMBER=2
+
 def check_horizontal(board, row, col, color):
   count = 1
-  for i in range(1, 5):
-    if col + i < 19 and board[row][col + i] == color:
+  for i in range(1, WINNING_LENGTH):
+    if col + i < COL_LENGTH and board[row][col + i] == color:
       count += 1
     else:
       break
@@ -9,8 +15,8 @@ def check_horizontal(board, row, col, color):
 
 def check_vertical(board, row, col, color):
   count = 1
-  for i in range(1, 5):
-    if row + i < 19 and board[row + i][col] == color:
+  for i in range(1, WINNING_LENGTH):
+    if row + i < ROW_LENGTH and board[row + i][col] == color:
       count += 1
     else:
       break
@@ -18,8 +24,8 @@ def check_vertical(board, row, col, color):
 
 def check_diagonal_top_left_bottom_right(board, row, col, color):
   count = 1
-  for i in range(1, 5):
-    if row + i < 19 and board[row + i][col] == color:
+  for i in range(1, WINNING_LENGTH):
+    if row + i < ROW_LENGTH and board[row + i][col] == color:
       count += 1
     else:
       break
@@ -27,29 +33,29 @@ def check_diagonal_top_left_bottom_right(board, row, col, color):
 
 def check_diagonal_bottom_left_top_right(board, row, col, color):
   count = 1
-  for i in range(1, 5):
-    if row + i < 19 and col - i >= 0 and board[row + i][col - i] == color:
+  for i in range(1, WINNING_LENGTH):
+    if row + i < ROW_LENGTH and col - i >= 0 and board[row + i][col - i] == color:
       count += 1
     else:
       break
   return count
 
-def check_five(board, row, col):
+def check_winning_lane(board, row, col):
   color = board[row][col]
 
   for check in [check_horizontal, check_vertical, check_diagonal_top_left_bottom_right, check_diagonal_bottom_left_top_right]:
-    if check(board, row, col, color) == 5:
+    if check(board, row, col, color) == WINNING_LENGTH:
       return True, row, col
   
   return False, None, None
 
 def check_winner(board):
-  for row in range(19):
-    for col in range(19):
+  for row in range(ROW_LENGTH):
+    for col in range(COL_LENGTH):
       if board[row][col] != 0:
-        win, win_row, win_col = check_five(board, row, col)
+        win, win_row, win_col = check_winning_lane(board, row, col)
         if win:
-          return (1 if board[row][col] == 1 else 2), (win_row, win_col)
+          return (BLACK_STONE_NUMBER if board[row][col] == BLACK_STONE_NUMBER else WHITE_STONE_NUMBER), (win_row, win_col)
   return 0, None
 
 
@@ -71,6 +77,9 @@ def main():
             print(win_pos[0] + 1, win_pos[1] + 1)
   except(ValueError):
     print('Wrong input file')
+    return
+  except(IndexError):
+    print('Wrong game`s field size')
     return
 
 if __name__ == "__main__":
