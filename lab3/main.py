@@ -7,8 +7,18 @@ class ClassInfo:
         self.parent = None
         self.children = set()
         self.methods = set()
+        self.private_methods = set()
         self.attributes = set()
         self.private_attributes = set()
+        self.metrics = {
+        'DIT': 0,
+        'NOC': 0,
+        'MIF': 0,
+        'MHF': 0,
+        'AHF': 0,
+        'AIF': 0,
+        'POF': 0,
+    }
 
 class MetricCalculator(ast.NodeVisitor):
     def __init__(self):
@@ -36,7 +46,10 @@ class MetricCalculator(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node):
         if self.current_class:
-            self.classes[self.current_class].methods.add(node.name)
+            method_name = node.name
+            if method_name.startswith("__") and not method_name.endswith("__"):
+                self.classes[self.current_class].private_methods.add(method_name)
+            self.classes[self.current_class].methods.add(method_name)
         self.generic_visit(node)
 
     def visit_Assign(self, node):
@@ -66,20 +79,6 @@ class MetricCalculator(ast.NodeVisitor):
         return len(self.classes[class_name].children)
 
     def calculate_mood_metrics(self):
-        mif = 0
-        mhf = 0
-        ahf = 0
-        aif = 0
-        pof = 0
-
-        total_methods = sum(len(cls.methods) for cls in self.classes.values())
-        total_attributes = sum(len(cls.attributes) for cls in self.classes.values())
-        total_inherited_methods = 0
-        total_hidden_methods = 0
-        total_inherited_attributes = 0
-        total_hidden_attributes = 0
-        total_polymorphic_methods = 0
-
         for cls in self.classes.values():
             inherited_methods = set()
             inherited_attributes = set()
@@ -91,56 +90,28 @@ class MetricCalculator(ast.NodeVisitor):
                 inherited_attributes.update(self.classes[parent].attributes)
                 current = parent
 
-            total_inherited_methods += len(inherited_methods)
-            total_hidden_methods += len(inherited_methods & cls.methods) 
-            total_polymorphic_methods += len(inherited_methods & cls.methods)
-
-            total_inherited_attributes += len(inherited_attributes - cls.attributes)
-            total_hidden_attributes += len(inherited_attributes & cls.attributes)
-
-        if total_methods > 0:
-            mif = total_inherited_methods / total_methods
-            mhf = total_hidden_methods / total_methods
-        if total_attributes > 0:
-            ahf = total_hidden_attributes / total_attributes
-            aif = total_inherited_attributes / total_attributes
-        if len(self.classes) > 0:
-            pof = total_polymorphic_methods / len(self.classes)
-
-        return mif, mhf, ahf, aif, pof
-
+            if len(inherited_methods) > 0:
+                cls.metrics['MIF'] = len(inherited_methods - cls.methods) / len(inherited_methods)
+            if len(cls.methods) > 0:
+                cls.metrics['MHF'] = len(cls.private_methods) / len(cls.methods)
+            if len(cls.attributes) > 0:
+                cls.metrics['AHF'] = len(cls.private_attributes) / len(cls.attributes)
+            if len(inherited_attributes) > 0:
+                cls.metrics['AIF'] = len(inherited_attributes - cls.attributes) / len(inherited_attributes)
+            if (len(self.classes) > 0) and (len(cls.methods - inherited_methods) > 0):
+                cls.metrics['POF'] = len(inherited_methods) / (len(cls.methods - inherited_methods) * len(self.classes))
+            cls.metrics = {key: round(value, 2) for key, value in cls.metrics.items()}
 def analyze_source_code(source_code):
     tree = ast.parse(source_code)
     calculator = MetricCalculator()
     calculator.visit(tree)
 
-    metrics = {}
-    for class_name in calculator.classes:
-        metrics[class_name] = {
-            'DIT': calculator.calculate_dit(class_name),
-            'NOC': calculator.calculate_noc(class_name),
-        }
+    for cls in calculator.classes.values():
+        cls.metrics['DIT'] = calculator.calculate_dit(cls.name)
+        cls.metrics['NOC'] = calculator.calculate_noc(cls.name)
 
-    mif, mhf, ahf, aif, pof = calculator.calculate_mood_metrics()
-    metrics['MOOD'] = {
-        'MIF': mif,
-        'MHF': mhf,
-        'AHF': ahf,
-        'AIF': aif,
-        'POF': pof,
-    }
-
-    return metrics
-
-def delete_dict_by_value(main_dict, value_dict):
-    keys_to_delete = []
-    for key, value in main_dict.items():
-        if value == value_dict:
-            keys_to_delete.append(key)
-    
-    for key in keys_to_delete:
-        del main_dict[key]
-
+    calculator.calculate_mood_metrics()
+    return calculator
 
 def analyze_directory(directory_path):
     metrics = {}
@@ -150,14 +121,22 @@ def analyze_directory(directory_path):
                 file_path = os.path.join(root, file)
                 with open(file_path, 'r', encoding='utf-8') as f:
                     source_code = f.read()
-                    file_metrics = analyze_source_code(source_code)
-                    metrics[file_path] = file_metrics
+                    metrics[file_path] = analyze_source_code(source_code)
     return metrics
 
 
 directory_path = './lib'
-metrics = analyze_directory(directory_path)
-for file, file_metrics in metrics.items():
+metrics_file = analyze_directory(directory_path)
+for file, file_metrics in metrics_file.items():
     print(f"Metrics for {file}:")
-    for class_name, class_metrics in file_metrics.items():
-        print(f"  {class_name}: {class_metrics}")
+    MOOD_lib = {'MIF': 0, 'MHF': 0, 'AHF': 0, 'AIF': 0, 'POF': 0}
+    for cls in file_metrics.classes.values():
+        MOOD_lib['MIF'] += cls.metrics['MIF']
+        MOOD_lib['MHF'] += cls.metrics['MHF']
+        MOOD_lib['AHF'] += cls.metrics['AHF']
+        MOOD_lib['AIF'] += cls.metrics['AIF']
+        MOOD_lib['POF'] += cls.metrics['POF']
+        print(f"  {cls.name}: {cls.metrics}")
+
+    MOOD_lib = {key: round(value / len (file_metrics.classes), 2) for key, value in MOOD_lib.items()}
+    print(f"  MOOD for lib: {MOOD_lib}")
